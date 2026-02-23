@@ -1,5 +1,5 @@
 const express = require('express');
-const crypto = require('crypto');
+const crypto = require('crypto'); // Node.js built-in module
 require('dotenv').config();
 
 const app = express();
