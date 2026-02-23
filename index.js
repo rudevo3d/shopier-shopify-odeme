@@ -4,29 +4,39 @@ require('dotenv').config();
 
 const app = express();
 
-// ULTRA SIMPLE CORS - NO MIDDLEWARE
+// DEBUG: Log environment variables
+console.log('=== ENVIRONMENT CHECK ===');
+console.log('API_KEY exists:', !!process.env.SHOPIER_API_KEY);
+console.log('API_SECRET exists:', !!process.env.SHOPIER_API_SECRET);
+console.log('CALLBACK_URL:', process.env.CALLBACK_URL);
+console.log('========================');
+
+// CORS
 app.all('*', (req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   
   if (req.method === 'OPTIONS') {
-    res.status(204).end();
-    return;
+    return res.status(204).end();
   }
-  
   next();
 });
 
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-// Health check
+// Health check with env info
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK' });
+  res.json({ 
+    status: 'OK',
+    env: {
+      hasKey: !!process.env.SHOPIER_API_KEY,
+      hasSecret: !!process.env.SHOPIER_API_SECRET,
+      callbackUrl: process.env.CALLBACK_URL
+    }
+  });
 });
 
-// Payment initiation
 app.post('/api/odeme-baslat', (req, res) => {
   try {
     const { order_id, amount, buyer, product_name } = req.body;
@@ -34,8 +44,23 @@ app.post('/api/odeme-baslat', (req, res) => {
     const API_KEY = process.env.SHOPIER_API_KEY;
     const API_SECRET = process.env.SHOPIER_API_SECRET;
     
+    // DEBUG LOG
+    console.log('Payment request received:', {
+      hasKey: !!API_KEY,
+      hasSecret: !!API_SECRET,
+      order_id,
+      amount
+    });
+    
     if (!API_KEY || !API_SECRET) {
-      return res.status(500).json({ error: 'API keys missing' });
+      console.error('MISSING API KEYS!');
+      return res.status(500).json({ 
+        error: 'API configuration missing',
+        debug: {
+          hasKey: !!API_KEY,
+          hasSecret: !!API_SECRET
+        }
+      });
     }
 
     const platformOrderId = order_id || 'ORD-' + Date.now();
@@ -51,20 +76,20 @@ app.post('/api/odeme-baslat', (req, res) => {
       platform_order_id: platformOrderId,
       amount: amount,
       currency: currency,
-      buyer_name: buyer.first_name,
-      buyer_surname: buyer.last_name,
-      buyer_email: buyer.email,
-      buyer_phone: buyer.phone,
-      buyer_id_nr: buyer.id || Date.now().toString(),
+      buyer_name: buyer?.first_name || 'Guest',
+      buyer_surname: buyer?.last_name || 'User',
+      buyer_email: buyer?.email || 'guest@example.com',
+      buyer_phone: buyer?.phone || '5555555555',
+      buyer_id_nr: buyer?.id || Date.now().toString(),
       product_name: product_name || 'Product',
-      billing_address: buyer.address || 'Turkey',
-      billing_city: buyer.city || 'Istanbul',
+      billing_address: 'Turkey',
+      billing_city: 'Istanbul',
       billing_country: 'Turkey',
-      billing_postcode: buyer.postcode || '34000',
-      shipping_address: buyer.address || 'Turkey',
-      shipping_city: buyer.city || 'Istanbul',
+      billing_postcode: '34000',
+      shipping_address: 'Turkey',
+      shipping_city: 'Istanbul',
       shipping_country: 'Turkey',
-      shipping_postcode: buyer.postcode || '34000',
+      shipping_postcode: '34000',
       callback_url: callbackUrl,
       random_nr: randomNr,
       signature: signature
@@ -104,7 +129,6 @@ app.post('/api/odeme-baslat', (req, res) => {
   }
 });
 
-// Callback
 app.post('/api/callback', (req, res) => {
   try {
     const { random_nr, platform_order_id, total_order_value, currency, signature, status, payment_id } = req.body;
@@ -128,7 +152,6 @@ app.post('/api/callback', (req, res) => {
   }
 });
 
-// Status pages
 app.get('/api/payment-success', (req, res) => {
   const { order_id, payment_id } = req.query;
   res.send(`<!DOCTYPE html><html><head><style>body{font-family:Arial;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;background:linear-gradient(135deg,#667eea,#764ba2);}.container{background:white;padding:50px;border-radius:20px;text-align:center;max-width:500px;}.success-icon{width:100px;height:100px;background:#48bb78;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 30px;}.success-icon::after{content:"✓";color:white;font-size:50px;font-weight:bold;}</style></head><body><div class="container"><div class="success-icon"></div><h1>Payment Successful!</h1><p>Order: #${order_id}</p><p>Payment ID: ${payment_id}</p><a href="https://3dstlmodel.com" style="display:inline-block;background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:15px 40px;text-decoration:none;border-radius:30px;font-weight:bold;">Return to Store</a></div></body></html>`);
