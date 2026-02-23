@@ -6,19 +6,23 @@ require('dotenv').config();
 
 const app = express();
 
-// Middleware
-app.use(cors());
+// CORS - TÜM DOMAINLERE İZİN VER
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 // HTML sayfaları için template
-const successPage = (orderId, paymentId) => `
-<!DOCTYPE html>
+const successPage = (orderId, paymentId) => `<!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ödeme Başarılı - Teşekkürler!</title>
+    <title>Odeme Basarili - Tesekkurler!</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -109,28 +113,26 @@ const successPage = (orderId, paymentId) => `
 <body>
     <div class="container">
         <div class="success-icon"></div>
-        <h1>Ödemeniz Başarılı!</h1>
-        <p>Siparişiniz için teşekkür ederiz.</p>
+        <h1>Odemeniz Basarili!</h1>
+        <p>Siparisiniz icin tesekkur ederiz.</p>
         
         <div class="order-info">
-            <p><strong>Sipariş Numarası:</strong> #${orderId}</p>
-            <p><strong>Ödeme ID:</strong> ${paymentId}</p>
+            <p><strong>Siparis Numarasi:</strong> #${orderId}</p>
+            <p><strong>Odeme ID:</strong> ${paymentId}</p>
             <p><strong>Tarih:</strong> ${new Date().toLocaleString('tr-TR')}</p>
         </div>
         
-        <a href="/" class="btn">Mağazaya Dön</a>
+        <a href="/" class="btn">Magazaya Don</a>
     </div>
 </body>
-</html>
-`;
+</html>`;
 
-const failPage = (orderId, reason) => `
-<!DOCTYPE html>
+const failPage = (orderId, reason) => `<!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ödeme Başarısız</title>
+    <title>Odeme Basarisiz</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -200,18 +202,17 @@ const failPage = (orderId, reason) => `
 <body>
     <div class="container">
         <div class="error-icon"></div>
-        <h1>Ödeme Başarısız</h1>
-        <p>İşlem sırasında bir sorun oluştu.</p>
+        <h1>Odeme Basarisiz</h1>
+        <p>Islem sirasinda bir sorun olustu.</p>
         <p style="font-size: 12px; color: #a0aec0;">${reason || ''}</p>
         <div>
             <a href="/" class="btn">Tekrar Dene</a>
         </div>
     </div>
 </body>
-</html>
-`;
+</html>`;
 
-// Shopier ödeme formu oluştur
+// Shopier odeme formu olustur
 app.post('/api/odeme-baslat', (req, res) => {
     try {
         const { order_id, amount, buyer, product_name } = req.body;
@@ -220,7 +221,7 @@ app.post('/api/odeme-baslat', (req, res) => {
         const API_SECRET = process.env.SHOPIER_API_SECRET;
         
         if (!API_KEY || !API_SECRET) {
-            return res.status(500).json({ error: 'API ayarları eksik' });
+            return res.status(500).json({ error: 'API ayarlari eksik' });
         }
 
         const platformOrderId = order_id || 'ORD-' + Date.now();
@@ -228,7 +229,7 @@ app.post('/api/odeme-baslat', (req, res) => {
         const currency = 'TRY';
         const callbackUrl = process.env.CALLBACK_URL || 'https://localhost:3000/api/callback';
         
-        // Signature oluştur
+        // Signature olustur
         const signatureString = `${randomNr}${platformOrderId}${amount}${currency}`;
         const signature = crypto
             .createHmac('sha256', API_SECRET)
@@ -246,26 +247,26 @@ app.post('/api/odeme-baslat', (req, res) => {
             buyer_email: buyer.email,
             buyer_phone: buyer.phone,
             buyer_id_nr: buyer.id || Date.now().toString(),
-            product_name: product_name || 'Ürün Satın Alma',
-            billing_address: buyer.address || 'Türkiye',
-            billing_city: buyer.city || 'İstanbul',
-            billing_country: 'Türkiye',
+            product_name: product_name || 'Urun Satin Alma',
+            billing_address: buyer.address || 'Turkiye',
+            billing_city: buyer.city || 'Istanbul',
+            billing_country: 'Turkiye',
             billing_postcode: buyer.postcode || '34000',
-            shipping_address: buyer.address || 'Türkiye',
-            shipping_city: buyer.city || 'İstanbul',
-            shipping_country: 'Türkiye',
+            shipping_address: buyer.address || 'Turkiye',
+            shipping_city: buyer.city || 'Istanbul',
+            shipping_country: 'Turkiye',
             shipping_postcode: buyer.postcode || '34000',
             callback_url: callbackUrl,
             random_nr: randomNr,
             signature: signature
         };
 
-        // HTML form oluştur
+        // HTML form olustur
         const formHtml = `
             <!DOCTYPE html>
             <html>
             <head>
-                <title>Shopier Ödeme</title>
+                <title>Shopier Odeme</title>
                 <style>
                     body {
                         font-family: Arial, sans-serif;
@@ -301,7 +302,7 @@ app.post('/api/odeme-baslat', (req, res) => {
             <body>
                 <div class="loading-box">
                     <div class="spinner"></div>
-                    <p>Shopier ödeme sayfasına yönlendiriliyorsunuz...</p>
+                    <p>Shopier odeme sayfasina yonlendiriliyorsunuz...</p>
                 </div>
                 <form id="shopierForm" action="https://www.shopier.com/api/v1/payment" method="POST" style="display:none;">
                     ${Object.entries(formData).map(([key, value]) => 
@@ -324,10 +325,10 @@ app.post('/api/odeme-baslat', (req, res) => {
         });
 
     } catch (error) {
-        console.error('Ödeme başlatma hatası:', error);
+        console.error('Odeme baslatma hatasi:', error);
         res.status(500).json({ 
             success: false, 
-            error: 'Ödeme başlatılamadı: ' + error.message 
+            error: 'Odeme baslatilamadi: ' + error.message 
         });
     }
 });
@@ -368,24 +369,24 @@ app.post('/api/callback', (req, res) => {
     }
 });
 
-// Başarılı sayfa
+// Basarili sayfa
 app.get('/api/payment-success', (req, res) => {
     const { order_id, payment_id } = req.query;
     res.send(successPage(order_id, payment_id));
 });
 
-// Başarısız sayfa
+// Basarisiz sayfa
 app.get('/api/payment-fail', (req, res) => {
     const { order_id, reason } = req.query;
     res.send(failPage(order_id, reason));
 });
 
-// Sağlık kontrolü
+// Saglik kontrolu
 app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', time: new Date().toISOString() });
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Sunucu ${PORT} portunda çalışıyor`);
+    console.log(`Sunucu ${PORT} portunda calisiyor`);
 });
